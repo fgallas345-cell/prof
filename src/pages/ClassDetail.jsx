@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getClass, listStudents, addStudents, updateStudent, deleteStudent, updateClass, deleteClass } from '../lib/repo'
 import { Icon, Modal, Confirm, Empty, Spinner, TopBar, Illustration, SkeletonList } from '../components/ui'
@@ -6,8 +6,10 @@ import { OfflineBanner } from '../components/Layout'
 import { useToast } from '../components/Toast'
 import { useOnline } from '../lib/online'
 import { useAuth } from '../context/AuthContext'
-import { initials, sortStudents, fullName, fmtBirth, studentMeta, toISODate, todayISO, findHomonym, duplicateNameIds } from '../lib/utils'
+import { initials, sortStudents, fullName, fmtBirth, studentMeta, todayISO, findHomonym, duplicateNameIds } from '../lib/utils'
 import { ClassForm } from './Classes'
+import ImportStudents from '../components/ImportStudents'
+import { parseStudentLine } from '../lib/importer'
 
 const VIEW_KEY = 'roster-view'
 const readView = () => { try { return localStorage.getItem(VIEW_KEY) === 'table' ? 'table' : 'list' } catch { return 'list' } }
@@ -99,7 +101,7 @@ export default function ClassDetail() {
 
       {students.length === 0 ? (
         <div className="card">
-          <Empty illustration={Illustration.Students} title="Aucun élève" text="Ajoutez vos élèves un par un ou importez toute la liste depuis un fichier Excel ou CSV." />
+          <Empty illustration={Illustration.Students} title="Aucun élève" text="Ajoutez vos élèves un par un ou importez toute la liste reçue de l'administration (PDF, Excel, CSV ou texte collé)." />
         </div>
       ) : filtered.length === 0 ? (
         <div className="card muted center small">Aucun élève ne correspond à « {q} ».</div>
@@ -157,8 +159,8 @@ export default function ClassDetail() {
           onSubmit={(rows) => run(() => addStudents(id, rows), `${rows.length} élève(s) ajouté(s)`)} />
       </Modal>
 
-      <Modal open={modal === 'import'} onClose={() => setModal(null)} title="Importer depuis un fichier">
-        <ImportForm busy={busy} onCancel={() => setModal(null)}
+      <Modal open={modal === 'import'} onClose={() => setModal(null)} title="Importer une liste d'élèves" wide>
+        <ImportStudents busy={busy} onCancel={() => setModal(null)} existing={students}
           onSubmit={(rows) => run(() => addStudents(id, rows), `${rows.length} élève(s) importé(s)`)} />
       </Modal>
 
@@ -222,39 +224,6 @@ function StudentFields({ v, set, autoFocus, homonym }) {
 }
 
 const EMPTY_STUDENT = { last_name: '', first_name: '', birth_date: '', student_code: '' }
-
-/**
- * Lit une ligne « NOM Prénom » avec, en option, une date de naissance et un identifiant :
- *   DIALLO Aminata ; 12/03/2012 ; A123     (séparateurs acceptés : ; , tabulation ou 2 espaces)
- *   DIALLO Aminata 12/03/2012
- */
-function parseStudentLine(line) {
-  const out = { ...EMPTY_STUDENT }
-  let parts = line.split(/[;,\t]| {2,}/).map((p) => p.trim()).filter(Boolean)
-  // date de naissance = premier jeton qui ressemble à une date (dans les colonnes ou dans les mots)
-  const isDateTok = (t) => !!toISODate(t) && /\d/.test(t)
-  const di = parts.findIndex(isDateTok)
-  if (di !== -1) { out.birth_date = toISODate(parts[di]); parts.splice(di, 1) }
-  else {
-    const words = parts.join(' ').split(/\s+/)
-    const wi = words.findIndex(isDateTok)
-    if (wi !== -1) { out.birth_date = toISODate(words[wi]); words.splice(wi, 1); parts = [words.join(' ')] }
-  }
-  const words = (parts[0] || '').split(/\s+/).filter(Boolean)
-  const upper = words.filter((w) => w === w.toUpperCase() && w.length > 1 && /\D/.test(w))
-  const firstIsFullName = words.length > 1 && upper.length > 0 && upper.length < words.length // ex. « DIALLO Aminata »
-  if (parts.length >= 2 && !firstIsFullName) {
-    // colonnes : NOM ; Prénom ; identifiant
-    out.last_name = parts[0]; out.first_name = parts[1]; out.student_code = parts.slice(2).join(' ')
-  } else if (firstIsFullName) {
-    // « NOM Prénom » dans le premier bloc (les MAJUSCULES = nom), le reste = identifiant
-    out.last_name = upper.join(' '); out.first_name = words.filter((w) => !upper.includes(w)).join(' ')
-    out.student_code = parts.slice(1).join(' ')
-  } else {
-    out.last_name = words[0] || ''; out.first_name = words.slice(1).join(' ')
-  }
-  return out
-}
 
 /* ---------------- Ajout : un élève (formulaire) ou plusieurs lignes ---------------- */
 function AddStudentsForm({ onSubmit, onCancel, busy, existing = [] }) {
@@ -320,76 +289,5 @@ function StudentForm({ initial, onSubmit, onCancel, busy, existing = [] }) {
         <button className="btn" disabled={busy}>{busy ? <Spinner white /> : 'Enregistrer'}</button>
       </div>
     </form>
-  )
-}
-
-/* ---------------- Import CSV / Excel avec aperçu ---------------- */
-function ImportForm({ onSubmit, onCancel, busy }) {
-  const ref = useRef()
-  const [rows, setRows] = useState(null)
-  const [err, setErr] = useState('')
-  const [fileName, setFileName] = useState('')
-
-  const pick = async (file) => {
-    if (!file) return
-    setErr(''); setFileName(file.name)
-    try {
-      const { parseStudentFile } = await import('../lib/export')
-      const parsed = await parseStudentFile(file)
-      if (!parsed.length) setErr('Aucun élève trouvé dans ce fichier. Vérifiez les colonnes « Nom » et « Prénom ».')
-      setRows(parsed)
-    } catch { setErr('Impossible de lire ce fichier. Formats acceptés : .xlsx, .xls, .csv') }
-  }
-
-  return (
-    <div>
-      {!rows ? (
-        <>
-          <div className="locked" onClick={() => ref.current.click()} style={{ cursor: 'pointer' }}
-            onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); pick(e.dataTransfer.files[0]) }}>
-            <div className="icon">📄</div>
-            <p className="bold mt-1">Choisir un fichier Excel ou CSV</p>
-            <p className="help">Colonnes attendues : <b>Nom</b>, <b>Prénom</b>, <b>Date de naissance</b> et <b>Identifiant</b> (optionnel). Une seule colonne « NOM Prénom » est aussi acceptée.</p>
-            <input ref={ref} type="file" accept=".csv,.xlsx,.xls,.txt" hidden onChange={(e) => pick(e.target.files[0])} />
-          </div>
-          {err && <p className="input-error mt-2">{err}</p>}
-          <button type="button" className="btn ghost block mt-2" onClick={() => import('../lib/export').then((m) => m.downloadImportTemplate())}><Icon.Download /> Télécharger un modèle Excel</button>
-          <div className="actions"><button type="button" className="btn outline" onClick={onCancel}>Annuler</button></div>
-        </>
-      ) : (
-        <>
-          <p className="small muted mb-1">
-            {fileName} — <b>{rows.length}</b> élève(s) détecté(s)
-            {rows.filter((r) => !r.birth_date).length > 0 && <>, <b>{rows.filter((r) => !r.birth_date).length}</b> sans date de naissance</>}. Vérifiez avant d'importer :
-          </p>
-          <div className="card flat table-wrap" style={{ maxHeight: 280, overflow: 'auto', padding: 8 }}>
-            <table className="table">
-              <thead><tr><th>#</th><th>Nom</th><th>Prénom</th><th>Naissance</th><th>Identifiant</th></tr></thead>
-              <tbody>
-                {rows.map((r, i) => {
-                  const edit = (k) => (e) => setRows(rows.map((x, j) => j === i ? { ...x, [k]: e.target.value } : x))
-                  return (
-                    <tr key={i}>
-                      <td className="muted xs">{i + 1}</td>
-                      <td><input className="input" style={{ height: 34, minWidth: 110 }} value={r.last_name} onChange={edit('last_name')} /></td>
-                      <td><input className="input" style={{ height: 34, minWidth: 110 }} value={r.first_name} onChange={edit('first_name')} /></td>
-                      <td><input type="date" className="input" style={{ height: 34, minWidth: 140 }} value={r.birth_date || ''} onChange={edit('birth_date')} /></td>
-                      <td><input className="input" style={{ height: 34, minWidth: 90 }} value={r.student_code || ''} onChange={edit('student_code')} placeholder="—" /></td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-          {err && <p className="input-error mt-2">{err}</p>}
-          <div className="actions">
-            <button type="button" className="btn outline" onClick={() => setRows(null)}>Autre fichier</button>
-            <button type="button" className="btn" disabled={busy || !rows.length} onClick={() => onSubmit(rows)}>
-              {busy ? <Spinner white /> : `Importer ${rows.length} élève(s)`}
-            </button>
-          </div>
-        </>
-      )}
-    </div>
   )
 }

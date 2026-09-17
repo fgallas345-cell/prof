@@ -11,7 +11,7 @@ Conforme au cahier des charges v2.0 (septembre 2026) : SaaS multi-tenant, valida
 | Module | Détails |
 |---|---|
 | **Compte enseignant** | Inscription email + mot de passe · statut *en attente* jusqu'à validation manuelle · écran bloquant clair |
-| **Classes & élèves** | Plusieurs classes · ajout manuel (un par un ou en bloc) · **import CSV / Excel** avec aperçu et correction · modification / suppression |
+| **Classes & élèves** | Plusieurs classes · ajout manuel (un par un ou en bloc) · **import PDF / Excel / CSV / texte collé** avec correspondance des colonnes, vérification et correction · nom, prénom, date de naissance, identifiant optionnel (homonymes) · modification / suppression |
 | **Prise de présence** | Tout le monde *présent* par défaut → on ne touche que les exceptions (Absent / Retard / Excusé) · bouton « Tous présents » · correction d'un appel passé · horodatage automatique |
 | **Hors-ligne** | Appels stockés dans IndexedDB (Dexie) · file de synchronisation · envoi automatique au retour du réseau · bandeau d'état |
 | **Historique** | Calendrier mensuel par classe avec code couleur · classement des élèves · fiche élève avec chronologie et compteurs (absences, retards, taux de présence) |
@@ -123,7 +123,8 @@ app/
     │   ├── supabase.js        Client Supabase
     │   ├── db.js              Base locale Dexie (IndexedDB)
     │   ├── repo.js            Accès aux données : Supabase ↔ cache local, file de synchro
-    │   ├── export.js          PDF / Excel / import CSV-Excel (chargé à la demande)
+    │   ├── export.js          PDF / Excel (chargé à la demande)
+    │   ├── importer.js        Lecture PDF (pdf.js) / Excel / CSV / texte → colonnes → élèves
     │   ├── online.js          Hook useOnline
     │   └── utils.js           Dates, statuts, statistiques
     └── pages/
@@ -148,7 +149,13 @@ app/
 
 ## Format d'import des élèves
 
-Fichier `.xlsx`, `.xls` ou `.csv` avec des colonnes **Nom** et **Prénom** (l'ordre et la casse n'importent pas ; `;`, `,` ou tabulation acceptés). Une seule colonne « NOM Prénom » fonctionne aussi : les mots en majuscules sont pris comme nom de famille. Un modèle est téléchargeable depuis la fenêtre d'import.
+L'assistant d'import accepte la liste telle qu'elle est envoyée par l'administration : **PDF** (texte extrait dans le navigateur avec pdf.js — les PDF scannés/images ne sont pas lisibles), **Excel** (`.xlsx`, `.xls`), **CSV** ou **texte collé**.
+
+1. **Colonnes** : l'app repère l'en-tête et devine Nom / Prénom / « Nom + Prénom » / Date de naissance / Identifiant ; on corrige avec un menu par colonne (les colonnes inutiles — N°, sexe… — sont ignorées).
+2. **Vérification** : chaque ligne est éditable ; les lignes incomplètes (prénom ou date manquants, date non reconnue, doublon dans le fichier ou déjà dans la classe) sont signalées, les lignes sans nom sont ignorées.
+3. **Import** en une fois.
+
+Dates acceptées : `jj/mm/aaaa`, `jj-mm-aaaa`, `aaaa-mm-jj`, dates Excel. Un modèle Excel est téléchargeable depuis la fenêtre d'import.
 
 ## Scripts
 
@@ -162,5 +169,6 @@ Fichier `.xlsx`, `.xls` ou `.csv` avec des colonnes **Nom** et **Prénom** (l'or
 ## Évolutions prévues (V2+)
 
 Gestion des conflits de synchro multi-appareils, notifications parents (SMS / WhatsApp), plan « établissement » (`organization_id`), statistiques comparatives, paiement en ligne.
-#   p r o f  
+#   p r o f 
+ 
  

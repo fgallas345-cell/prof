@@ -4,7 +4,7 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
-import { STATUS, fmtDate, fmtDateShort, fullName, sortStudents, computeStats, fmtBirth, toISODate, duplicateNameIds } from './utils'
+import { STATUS, fmtDate, fmtDateShort, fullName, sortStudents, computeStats, fmtBirth, duplicateNameIds } from './utils'
 import { parseISO, format } from 'date-fns'
 
 const STATUS_FILL = {
@@ -280,54 +280,6 @@ export function downloadImportTemplate() {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Élèves')
   XLSX.writeFile(wb, 'modele_import_eleves.xlsx')
-}
-
-/**
- * Lit un fichier CSV / Excel et renvoie [{last_name, first_name, birth_date, student_code}]
- * Détection souple des colonnes : "nom", "prénom"/"prenom", "date de naissance"/"né le", "identifiant"/"matricule"…
- * Si une seule colonne : "NOM Prénom" est découpé.
- */
-export async function parseStudentFile(file) {
-  const buf = await file.arrayBuffer()
-  // raw: true → les textes CSV restent des chaînes (sinon « 12/03/2012 » serait lu à l'américaine) ; cellDates → vraies dates Excel en objets Date
-  const wb = XLSX.read(buf, { type: 'array', codepage: 65001, cellDates: true, raw: true })
-  const ws = wb.Sheets[wb.SheetNames[0]]
-  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false, defval: '' })
-  if (!rows.length) return []
-
-  const norm = (v) => String(v || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-  const first = rows[0].map(norm)
-  let iLast = first.findIndex((h) => ['nom', 'nom de famille', 'last_name', 'lastname', 'last', 'name'].includes(h))
-  let iFirst = first.findIndex((h) => ['prenom', 'prenoms', 'first_name', 'firstname', 'first'].includes(h))
-  const iBirth = first.findIndex((h) => h.includes('naissance') || h === 'ne le' || h === 'nee le' || h.includes('birth') || h === 'ddn' || h === 'date')
-  const iCode = first.findIndex((h) => ['identifiant', 'id', 'matricule', 'code', 'numero', 'n°', 'no', 'student_code', 'ine'].includes(h))
-  const hasHeader = iLast !== -1 || iFirst !== -1
-  const data = hasHeader ? rows.slice(1) : rows
-  if (!hasHeader) { iLast = 0; iFirst = 1 }
-
-  const out = []
-  for (const r of data) {
-    let last = String(r[iLast] ?? '').trim()
-    let firstN = iFirst >= 0 ? String(r[iFirst] ?? '').trim() : ''
-    if (last && !firstN && last.includes(' ')) {
-      // colonne unique "NOM Prénom" ou "Prénom NOM" : les mots en MAJUSCULES = nom de famille
-      const parts = last.split(/\s+/)
-      const upper = parts.filter((p) => p === p.toUpperCase() && p.length > 1)
-      if (upper.length && upper.length < parts.length) {
-        last = upper.join(' ')
-        firstN = parts.filter((p) => !upper.includes(p)).join(' ')
-      } else {
-        last = parts[0]; firstN = parts.slice(1).join(' ')
-      }
-    }
-    if (last || firstN) out.push({
-      last_name: last,
-      first_name: firstN,
-      birth_date: iBirth >= 0 ? toISODate(r[iBirth]) : '',
-      student_code: iCode >= 0 ? String(r[iCode] ?? '').trim() : '',
-    })
-  }
-  return out
 }
 
 const slug = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').toLowerCase()

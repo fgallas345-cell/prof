@@ -117,7 +117,7 @@ export const LoadingPage = () => <div className="loading-page"><Spinner /></div>
 export const ErrorText = ({ children }) => children ? <p className="input-error mb-2"><Icon.Alert size={16} /> {children}</p> : null
 
 /* ---------------- Modal (bottom sheet mobile / centré desktop) ---------------- */
-export function Modal({ open, onClose, title, children }) {
+export function Modal({ open, onClose, title, children, wide }) {
   useEffect(() => {
     if (!open) return
     const onKey = (e) => e.key === 'Escape' && onClose?.()
@@ -128,7 +128,7 @@ export function Modal({ open, onClose, title, children }) {
   if (!open) return null
   return (
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}>
-      <div className="sheet" role="dialog" aria-modal="true">
+      <div className={`sheet ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true">
         {title && (
           <div className="row between mb-2">
             <h2 style={{ margin: 0 }}>{title}</h2>

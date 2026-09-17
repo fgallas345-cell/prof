@@ -539,6 +539,7 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   .sheet::before { display: none; }
 }
 .sheet h2 { margin-bottom: 16px; min-width: 0; overflow-wrap: anywhere; }
+@media (min-width: 640px) { .sheet.wide { max-width: 880px; } }
 @media (max-width: 480px) { .sheet { padding-left: 16px; padding-right: 16px; } }
 .sheet .actions { display: flex; gap: 10px; margin-top: 20px; }
 .sheet .actions .btn { flex: 1; }
@@ -641,6 +642,36 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .table.roster td.actions .btn { vertical-align: middle; }
 .table.roster td { overflow-wrap: anywhere; }
 .table td.nowrap { white-space: nowrap; }
+
+/* Import : correspondance des colonnes + vérification */
+.input.sm { height: 34px; padding: 0 10px; font-size: 14px; border-radius: 9px; }
+select.input.sm { padding-right: 30px; background-position: right 8px center; }
+.table.map th { vertical-align: bottom; min-width: 150px; text-transform: none; letter-spacing: 0; }
+.table.map th select.mapped { border-color: var(--primary); background-color: var(--primary-soft); color: var(--primary-text); font-weight: 600; }
+.table.map td { white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+.table.review td { padding: 5px 4px; }
+.table.review td:nth-child(2), .table.review td:nth-child(3) { min-width: 120px; }
+.table.review td:nth-child(4) { min-width: 140px; }
+.table.review td:nth-child(5) { min-width: 90px; }
+.table.review tr.warn td { background: color-mix(in srgb, var(--late-soft) 45%, transparent); }
+.table.review tr.error td { background: color-mix(in srgb, var(--absent-soft) 45%, transparent); }
+.table.review tr.issue td { border-top: 0; padding-top: 0; padding-bottom: 8px; color: var(--late-text); }
+.table.review tr.issue.error td { color: var(--absent-text); }
+.table.review tr.issue td:first-child { border-bottom: 0; }
+@media (max-width: 899px) { .input.sm, .table.review .input, .table.map select { font-size: 14px; } }
+.map-cards { display: none; flex-direction: column; gap: 8px; }
+.map-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.map-card.on { border-color: var(--primary-soft-2); background: color-mix(in srgb, var(--primary-soft) 40%, var(--surface)); }
+.map-card select { width: 150px; flex-shrink: 0; }
+.scroll-hint { display: none; }
+@media (max-width: 639px) {
+  .map-cards { display: flex; }
+  .map-table { display: none; }
+  .scroll-hint { display: inline; }
+  .map-card { flex-wrap: wrap; }
+  .map-card > .grow { flex-basis: 100%; }
+  .map-card select { width: 100%; }
+}
 .table.roster tbody tr:hover td { background: var(--surface-2); }
 @media (max-width: 480px) {
   .table { font-size: 13px; }
