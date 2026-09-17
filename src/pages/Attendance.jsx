@@ -7,7 +7,7 @@ import { OfflineBanner } from '../components/Layout'
 import { useToast } from '../components/Toast'
 import { useOnline } from '../lib/online'
 import { useAuth } from '../context/AuthContext'
-import { STATUS, STATUS_KEYS, todayISO, fmtDate, capitalize, initials, sortStudents } from '../lib/utils'
+import { STATUS, STATUS_KEYS, todayISO, fmtDate, capitalize, initials, sortStudents, fmtBirth, duplicateNameIds } from '../lib/utils'
 
 export default function Attendance() {
   const { classId } = useParams()
@@ -97,6 +97,7 @@ export default function Attendance() {
     )
   }
   const presentRate = students.length ? Math.round(((counts.present + counts.late) / students.length) * 100) : 100
+  const dupNames = duplicateNameIds(students)
 
   return (
     <>
@@ -169,7 +170,10 @@ export default function Attendance() {
                   </span>
                   <div className="who" onClick={() => cycle(s.id)}>
                     <div className="name">{s.last_name} <span style={{ fontWeight: 500 }}>{s.first_name}</span></div>
-                    <div className="state" style={{ color: STATUS[st].color }}>{STATUS[st].label}</div>
+                    <div className="state" style={{ color: STATUS[st].color }}>
+                      {STATUS[st].label}
+                      {dupNames.has(s.id) && <span className="muted" style={{ fontWeight: 500 }}> · {s.student_code ? `N° ${s.student_code}` : fmtBirth(s.birth_date) ? `né(e) le ${fmtBirth(s.birth_date)}` : ''}</span>}
+                    </div>
                   </div>
                   <div className="att-btns">
                     {STATUS_KEYS.map((k) => (

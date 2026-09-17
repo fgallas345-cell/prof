@@ -6,7 +6,7 @@ import { listClasses, getClass, listStudents, getAttendanceForMonth } from '../l
 import { Icon, LoadingPage, Empty, TopBar, Illustration, SkeletonList } from '../components/ui'
 import { OfflineBanner } from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
-import { computeStats, dayTone, todayISO, sortStudents, initials, capitalize, fullName } from '../lib/utils'
+import { computeStats, dayTone, todayISO, sortStudents, initials, capitalize, fullName, fmtBirth, duplicateNameIds } from '../lib/utils'
 
 /** Sélecteur de classe (si aucun id dans l'URL) */
 export function HistoryIndex() {
@@ -76,6 +76,7 @@ export default function ClassHistory() {
 
   if (!cls) return <LoadingPage />
 
+  const dupNames = duplicateNameIds(students)
   const nDays = getDaysInMonth(month)
   const offset = (getDay(month) + 6) % 7 // lundi = 0
   const cells = [...Array(offset).fill(null), ...Array.from({ length: nDays }, (_, i) => i + 1)]
@@ -149,7 +150,7 @@ export default function ClassHistory() {
                 <Link key={s.id} to={`/eleve/${s.id}`} className="list-item card-link">
                   <span className="avatar" style={{ background: cls.color }}>{initials(s.first_name, s.last_name)}</span>
                   <div className="grow">
-                    <div className="name">{fullName(s)}</div>
+                    <div className="name">{fullName(s)}{dupNames.has(s.id) && <span className="muted xs" style={{ fontWeight: 500 }}> · {s.student_code ? `N° ${s.student_code}` : fmtBirth(s.birth_date)}</span>}</div>
                     <div className="row xs" style={{ gap: 6 }}>
                       {st.absent > 0 && <span className="chip absent" style={{ height: 20 }}>{st.absent} abs.</span>}
                       {st.late > 0 && <span className="chip late" style={{ height: 20 }}>{st.late} ret.</span>}

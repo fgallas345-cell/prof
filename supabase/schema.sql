@@ -51,8 +51,14 @@ create table if not exists public.students (
   class_id    uuid not null references public.classes(id) on delete cascade,
   first_name  text not null,
   last_name   text not null,
+  birth_date  date,                 -- date de naissance
+  student_code text,                -- identifiant / matricule optionnel (distingue deux homonymes nés le même jour)
   created_at  timestamptz not null default now()
 );
+
+-- Mise à jour d'une base existante (idempotent) : ajoute les colonnes si elles manquent
+alter table public.students add column if not exists birth_date   date;
+alter table public.students add column if not exists student_code text;
 
 create table if not exists public.attendance_records (
   id           uuid primary key default gen_random_uuid(),

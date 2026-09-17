@@ -126,6 +126,7 @@ export async function addStudents(classId, students) {
       class_id: classId,
       first_name: (s.first_name || '').trim(),
       last_name: (s.last_name || '').trim(),
+      ...cleanStudentExtras(s),
     }))
     .filter((s) => s.first_name || s.last_name)
   if (!rows.length) return []
@@ -135,9 +136,19 @@ export async function addStudents(classId, students) {
   return data
 }
 
+/** birth_date vide → null ; student_code vide → null (les deux colonnes sont nullables) */
+function cleanStudentExtras(s) {
+  return {
+    birth_date: s.birth_date ? String(s.birth_date).slice(0, 10) : null,
+    student_code: (s.student_code || '').trim() || null,
+  }
+}
+
 export async function updateStudent(id, patch) {
   if (!isOnline()) throw new Error('La modification nécessite une connexion internet.')
-  const { data, error } = await supabase.from('students').update(patch).eq('id', id).select().single()
+  const clean = { ...patch }
+  if ('birth_date' in patch || 'student_code' in patch) Object.assign(clean, cleanStudentExtras(patch))
+  const { data, error } = await supabase.from('students').update(clean).eq('id', id).select().single()
   fail(error)
   await db.students.put(data)
   return data

@@ -6,7 +6,7 @@ import { Icon, LoadingPage, TopBar, StatusChip } from '../components/ui'
 import { OfflineBanner } from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../components/Toast'
-import { computeStats, fmtDate, capitalize, initials, fullName, todayISO } from '../lib/utils'
+import { computeStats, fmtDate, capitalize, initials, fullName, todayISO, studentMeta } from '../lib/utils'
 
 export default function StudentDetail() {
   const { id } = useParams()
@@ -45,7 +45,7 @@ export default function StudentDetail() {
 
   return (
     <>
-      <TopBar title={fullName(student)} subtitle={cls.name}
+      <TopBar title={fullName(student)} subtitle={[cls.name, studentMeta(student)].filter(Boolean).join(' · ')}
         right={<button className="btn sm secondary" onClick={exportSheet}><Icon.File size={16} /> Fiche PDF</button>} />
       <OfflineBanner />
 

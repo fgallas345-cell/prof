@@ -325,8 +325,10 @@ textarea.input { height: auto; padding: 12px 14px; resize: vertical; min-height:
 .input::placeholder { color: var(--text-3); }
 .input[type="date"] { min-width: 0; -webkit-appearance: none; appearance: none; padding: 0 10px; }
 .input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 2px; }
-/* Deux champs date côte à côte ne tiennent pas sous 360px : on les empile */
+/* Deux champs côte à côte dans une modale / sous 360px : on les empile */
+.grid-2.fields { gap: 0 12px; }
 @media (max-width: 360px) { .grid-2:has(> .field) { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+@media (max-width: 480px) { .sheet .grid-2.fields { grid-template-columns: minmax(0, 1fr); gap: 0; } }
 /* iOS zoome automatiquement sur un champ < 16px : on force 16px sur mobile */
 @media (max-width: 899px) {
   .input, select.input, textarea.input, .search input, .pill-date input { font-size: 16px; }
@@ -638,6 +640,7 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .table.roster th.actions, .table.roster td.actions { width: 1%; white-space: nowrap; text-align: right; padding-left: 4px; padding-right: 4px; }
 .table.roster td.actions .btn { vertical-align: middle; }
 .table.roster td { overflow-wrap: anywhere; }
+.table td.nowrap { white-space: nowrap; }
 .table.roster tbody tr:hover td { background: var(--surface-2); }
 @media (max-width: 480px) {
   .table { font-size: 13px; }

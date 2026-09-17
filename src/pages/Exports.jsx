@@ -6,7 +6,7 @@ import { Icon, Empty, Spinner, Illustration, SkeletonList } from '../components/
 import { OfflineBanner } from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../components/Toast'
-import { todayISO, sortStudents, fullName, PLAN_LABEL } from '../lib/utils'
+import { todayISO, sortStudents, fullName, PLAN_LABEL, fmtBirth, duplicateNameIds } from '../lib/utils'
 
 const iso = (d) => format(d, 'yyyy-MM-dd')
 const PRESETS = [
@@ -30,6 +30,7 @@ export default function Exports() {
   const [busy, setBusy] = useState('')
 
   const isFree = profile?.plan === 'free'
+  const dupStudents = duplicateNameIds(students)
 
   useEffect(() => {
     listClasses().then((c) => { setClasses(c); if (c[0]) setClassId(c[0].id) })
@@ -130,7 +131,7 @@ export default function Exports() {
 
           <div className="card">
             <h3 className="mb-1">3. Liste des élèves</h3>
-            <p className="muted small mb-2">Liste nominative de la classe (N°, nom, prénom) sans aucune donnée d'appel — pratique à imprimer.</p>
+            <p className="muted small mb-2">Liste nominative de la classe (N°, nom, prénom, date de naissance, identifiant) sans aucune donnée d'appel — pratique à imprimer.</p>
             <button className="btn outline block" onClick={() => run('list')} disabled={!!busy || isFree || !students.length}>{busy === 'list' ? <Spinner /> : <><Icon.File /> Liste des élèves PDF</>}</button>
           </div>
 
@@ -140,7 +141,7 @@ export default function Exports() {
             <div className="field">
               <label>Élève</label>
               <select className="input" value={studentId} onChange={(e) => setStudentId(e.target.value)}>
-                {students.map((s) => <option key={s.id} value={s.id}>{fullName(s)}</option>)}
+                {students.map((s) => <option key={s.id} value={s.id}>{fullName(s)}{dupStudents.has(s.id) ? ` (${s.student_code || fmtBirth(s.birth_date) || '?'})` : ''}</option>)}
               </select>
             </div>
             <button className="btn secondary block" onClick={() => run('student')} disabled={!!busy || isFree || !studentId}>{busy === 'student' ? <Spinner /> : <><Icon.User /> Générer la fiche PDF</>}</button>

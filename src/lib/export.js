@@ -4,7 +4,7 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
-import { STATUS, fmtDate, fmtDateShort, fullName, sortStudents, computeStats } from './utils'
+import { STATUS, fmtDate, fmtDateShort, fullName, sortStudents, computeStats, fmtBirth, toISODate, duplicateNameIds } from './utils'
 import { parseISO, format } from 'date-fns'
 
 const STATUS_FILL = {
@@ -53,6 +53,9 @@ export function exportClassRegisterPDF({ cls, students, records, from, to, teach
   const days = [...new Set(records.map((r) => r.date))].sort()
   const byKey = {}
   for (const r of records) byKey[`${r.student_id}|${r.date}`] = r.status
+  // homonymes : on ajoute l'identifiant ou la date de naissance pour les distinguer
+  const dup = duplicateNameIds(sorted)
+  const label = (s) => dup.has(s.id) ? `${fullName(s)} (${s.student_code || fmtBirth(s.birth_date) || '?'})` : fullName(s)
 
   header(doc, `Registre de présence — ${cls.name}`, `Période du ${fmtDateShort(from)} au ${fmtDateShort(to)} · ${days.length} appel(s)`, teacherName)
 
@@ -61,7 +64,7 @@ export function exportClassRegisterPDF({ cls, students, records, from, to, teach
     const own = records.filter((r) => r.student_id === s.id)
     const st = computeStats(own)
     return [
-      fullName(s),
+      label(s),
       ...days.map((d) => STATUS[byKey[`${s.id}|${d}`]]?.short || '–'),
       st.absent, st.late, st.excused, `${st.rate}%`,
     ]
@@ -99,7 +102,7 @@ export function exportClassRegisterPDF({ cls, students, records, from, to, teach
 
 /**
  * Liste des élèves d'une classe (PDF portrait) — sans aucune donnée d'appel.
- * Colonnes : N°, Nom, Prénom + une colonne vide « Observations » pour un usage papier.
+ * Colonnes : N°, Nom, Prénom, date de naissance, identifiant + une colonne vide « Observations » pour un usage papier.
  */
 export function exportClassListPDF({ cls, students, teacherName }) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
@@ -108,15 +111,17 @@ export function exportClassListPDF({ cls, students, teacherName }) {
 
   autoTable(doc, {
     startY: 27,
-    head: [['N°', 'Nom', 'Prénom', 'Observations']],
-    body: sorted.map((s, i) => [i + 1, s.last_name || '', s.first_name || '', '']),
-    styles: { fontSize: 10, cellPadding: 2.5, valign: 'middle' },
+    head: [['N°', 'Nom', 'Prénom', 'Né(e) le', 'Identifiant', 'Observations']],
+    body: sorted.map((s, i) => [i + 1, s.last_name || '', s.first_name || '', fmtBirth(s.birth_date), s.student_code || '', '']),
+    styles: { fontSize: 9.5, cellPadding: 2.5, valign: 'middle' },
     headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
     columnStyles: {
-      0: { halign: 'center', cellWidth: 14, textColor: [144, 149, 176] },
-      1: { cellWidth: 55, fontStyle: 'bold' },
-      2: { cellWidth: 55 },
-      3: { cellWidth: 'auto' },
+      0: { halign: 'center', cellWidth: 12, textColor: [144, 149, 176] },
+      1: { cellWidth: 44, fontStyle: 'bold' },
+      2: { cellWidth: 44 },
+      3: { cellWidth: 24, halign: 'center' },
+      4: { cellWidth: 26 },
+      5: { cellWidth: 'auto' },
     },
     alternateRowStyles: { fillColor: [248, 249, 254] },
   })
@@ -129,7 +134,8 @@ export function exportClassListPDF({ cls, students, teacherName }) {
 export function exportStudentSheetPDF({ student, cls, records, teacherName, from, to }) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const st = computeStats(records)
-  header(doc, `Fiche élève — ${fullName(student)}`, `Classe ${cls.name} · du ${fmtDateShort(from)} au ${fmtDateShort(to)}`, teacherName)
+  const idBits = [student.birth_date ? `né(e) le ${fmtBirth(student.birth_date)}` : '', student.student_code ? `N° ${student.student_code}` : ''].filter(Boolean).join(' · ')
+  header(doc, `Fiche élève — ${fullName(student)}`, `Classe ${cls.name}${idBits ? ` · ${idBits}` : ''} · du ${fmtDateShort(from)} au ${fmtDateShort(to)}`, teacherName)
 
   // Bloc statistiques
   const cards = [
@@ -200,18 +206,18 @@ export function exportClassExcel({ cls, students, records, from, to }) {
 
   // Feuille 1 : Registre
   const registre = [
-    ['Nom', 'Prénom', ...days.map((d) => fmtDateShort(d)), 'Absences', 'Retards', 'Excusés', 'Taux présence'],
+    ['Nom', 'Prénom', 'Date de naissance', 'Identifiant', ...days.map((d) => fmtDateShort(d)), 'Absences', 'Retards', 'Excusés', 'Taux présence'],
     ...sorted.map((s) => {
       const st = computeStats(records.filter((r) => r.student_id === s.id))
       return [
-        s.last_name, s.first_name,
+        s.last_name, s.first_name, fmtBirth(s.birth_date), s.student_code || '',
         ...days.map((d) => STATUS[byKey[`${s.id}|${d}`]?.status]?.short || ''),
         st.absent, st.late, st.excused, st.rate / 100,
       ]
     }),
   ]
   const ws1 = XLSX.utils.aoa_to_sheet(registre)
-  ws1['!cols'] = [{ wch: 18 }, { wch: 16 }, ...days.map(() => ({ wch: 11 })), { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }]
+  ws1['!cols'] = [{ wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, ...days.map(() => ({ wch: 11 })), { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }]
   // pourcentage
   for (let r = 1; r < registre.length; r++) {
     const ref = XLSX.utils.encode_cell({ r, c: registre[0].length - 1 })
@@ -265,25 +271,26 @@ export function exportClassExcel({ cls, students, records, from, to }) {
 /** Modèle Excel vide pour l'import d'élèves */
 export function downloadImportTemplate() {
   const ws = XLSX.utils.aoa_to_sheet([
-    ['Nom', 'Prénom'],
-    ['DIALLO', 'Aminata'],
-    ['NDIAYE', 'Moussa'],
-    ['SOW', 'Fatou'],
+    ['Nom', 'Prénom', 'Date de naissance', 'Identifiant'],
+    ['DIALLO', 'Aminata', '12/03/2012', 'A123'],
+    ['NDIAYE', 'Moussa', '05/11/2011', ''],
+    ['SOW', 'Fatou', '23/07/2012', ''],
   ])
-  ws['!cols'] = [{ wch: 20 }, { wch: 20 }]
+  ws['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 14 }]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Élèves')
   XLSX.writeFile(wb, 'modele_import_eleves.xlsx')
 }
 
 /**
- * Lit un fichier CSV / Excel et renvoie [{last_name, first_name}]
- * Détection souple des colonnes : "nom", "prénom"/"prenom", "last", "first"…
+ * Lit un fichier CSV / Excel et renvoie [{last_name, first_name, birth_date, student_code}]
+ * Détection souple des colonnes : "nom", "prénom"/"prenom", "date de naissance"/"né le", "identifiant"/"matricule"…
  * Si une seule colonne : "NOM Prénom" est découpé.
  */
 export async function parseStudentFile(file) {
   const buf = await file.arrayBuffer()
-  const wb = XLSX.read(buf, { type: 'array', codepage: 65001 })
+  // raw: true → les textes CSV restent des chaînes (sinon « 12/03/2012 » serait lu à l'américaine) ; cellDates → vraies dates Excel en objets Date
+  const wb = XLSX.read(buf, { type: 'array', codepage: 65001, cellDates: true, raw: true })
   const ws = wb.Sheets[wb.SheetNames[0]]
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false, defval: '' })
   if (!rows.length) return []
@@ -292,6 +299,8 @@ export async function parseStudentFile(file) {
   const first = rows[0].map(norm)
   let iLast = first.findIndex((h) => ['nom', 'nom de famille', 'last_name', 'lastname', 'last', 'name'].includes(h))
   let iFirst = first.findIndex((h) => ['prenom', 'prenoms', 'first_name', 'firstname', 'first'].includes(h))
+  const iBirth = first.findIndex((h) => h.includes('naissance') || h === 'ne le' || h === 'nee le' || h.includes('birth') || h === 'ddn' || h === 'date')
+  const iCode = first.findIndex((h) => ['identifiant', 'id', 'matricule', 'code', 'numero', 'n°', 'no', 'student_code', 'ine'].includes(h))
   const hasHeader = iLast !== -1 || iFirst !== -1
   const data = hasHeader ? rows.slice(1) : rows
   if (!hasHeader) { iLast = 0; iFirst = 1 }
@@ -311,7 +320,12 @@ export async function parseStudentFile(file) {
         last = parts[0]; firstN = parts.slice(1).join(' ')
       }
     }
-    if (last || firstN) out.push({ last_name: last, first_name: firstN })
+    if (last || firstN) out.push({
+      last_name: last,
+      first_name: firstN,
+      birth_date: iBirth >= 0 ? toISODate(r[iBirth]) : '',
+      student_code: iCode >= 0 ? String(r[iCode] ?? '').trim() : '',
+    })
   }
   return out
 }
