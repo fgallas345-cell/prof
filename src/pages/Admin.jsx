@@ -60,9 +60,9 @@ export default function Admin() {
         <Icon.Search />
         <input placeholder="Rechercher par nom ou email…" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
-      <div className="seg mb-2" style={{ display: 'flex' }}>
+      <div className="seg fill mb-2">
         {[['all', 'Tous'], ['pending', 'Attente'], ['active', 'Validés'], ['suspended', 'Suspendus']].map(([k, l]) => (
-          <button key={k} className={filter === k ? 'on' : ''} style={{ flex: 1, padding: '8px 6px' }} onClick={() => setFilter(k)}>{l} · {counts[k]}</button>
+          <button key={k} className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>{l} · {counts[k]}</button>
         ))}
       </div>
 

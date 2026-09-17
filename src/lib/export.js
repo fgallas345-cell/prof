@@ -97,6 +97,34 @@ export function exportClassRegisterPDF({ cls, students, records, from, to, teach
   doc.save(`registre_${slug(cls.name)}_${from}_${to}.pdf`)
 }
 
+/**
+ * Liste des élèves d'une classe (PDF portrait) — sans aucune donnée d'appel.
+ * Colonnes : N°, Nom, Prénom + une colonne vide « Observations » pour un usage papier.
+ */
+export function exportClassListPDF({ cls, students, teacherName }) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const sorted = sortStudents(students)
+  header(doc, `Liste des élèves — ${cls.name}`, `${sorted.length} élève${sorted.length > 1 ? 's' : ''}${cls.level ? ` · ${cls.level}` : ''} · au ${format(new Date(), 'dd/MM/yyyy')}`, teacherName)
+
+  autoTable(doc, {
+    startY: 27,
+    head: [['N°', 'Nom', 'Prénom', 'Observations']],
+    body: sorted.map((s, i) => [i + 1, s.last_name || '', s.first_name || '', '']),
+    styles: { fontSize: 10, cellPadding: 2.5, valign: 'middle' },
+    headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 14, textColor: [144, 149, 176] },
+      1: { cellWidth: 55, fontStyle: 'bold' },
+      2: { cellWidth: 55 },
+      3: { cellWidth: 'auto' },
+    },
+    alternateRowStyles: { fillColor: [248, 249, 254] },
+  })
+
+  footer(doc)
+  doc.save(`liste_${slug(cls.name)}_${format(new Date(), 'yyyy-MM-dd')}.pdf`)
+}
+
 /** Fiche individuelle d'un élève (PDF portrait) */
 export function exportStudentSheetPDF({ student, cls, records, teacherName, from, to }) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })

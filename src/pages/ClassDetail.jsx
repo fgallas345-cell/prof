@@ -5,19 +5,39 @@ import { Icon, Modal, Confirm, Empty, Spinner, TopBar, Illustration, SkeletonLis
 import { OfflineBanner } from '../components/Layout'
 import { useToast } from '../components/Toast'
 import { useOnline } from '../lib/online'
+import { useAuth } from '../context/AuthContext'
 import { initials, sortStudents, fullName } from '../lib/utils'
 import { ClassForm } from './Classes'
+
+const VIEW_KEY = 'roster-view'
+const readView = () => { try { return localStorage.getItem(VIEW_KEY) === 'table' ? 'table' : 'list' } catch { return 'list' } }
 
 export default function ClassDetail() {
   const { id } = useParams()
   const nav = useNavigate()
   const toast = useToast()
   const online = useOnline()
+  const { profile } = useAuth()
   const [cls, setCls] = useState(null)
   const [students, setStudents] = useState(null)
   const [q, setQ] = useState('')
+  const [view, setView] = useState(readView) // 'list' | 'table'
   const [modal, setModal] = useState(null) // 'add' | 'import' | 'edit' | 'editClass' | 'deleteClass' | {delete: student}
   const [busy, setBusy] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
+  const changeView = (v) => { setView(v); try { localStorage.setItem(VIEW_KEY, v) } catch {} }
+
+  const exportList = async () => {
+    if (profile?.plan === 'free') return toast.warning("L'export est réservé au plan individuel.")
+    setExporting(true)
+    try {
+      const { exportClassListPDF } = await import('../lib/export')
+      exportClassListPDF({ cls, students, teacherName: profile?.full_name })
+      toast.success('Liste PDF générée ✓')
+    } catch (e) { toast.error(e.message) }
+    finally { setExporting(false) }
+  }
 
   const load = async () => {
     const [c, s] = await Promise.all([getClass(id), listStudents(id)])
@@ -52,10 +72,22 @@ export default function ClassDetail() {
         <Link to={`/historique/${id}`} className="btn lg secondary"><Icon.Calendar /> Historique</Link>
       </div>
 
-      <div className="row mb-2">
-        <button className="btn outline grow" onClick={() => setModal('add')} disabled={!online}><Icon.Plus /> Ajouter</button>
-        <button className="btn outline grow" onClick={() => setModal('import')} disabled={!online}><Icon.Upload /> Importer un fichier</button>
+      <div className="grid-2 mb-2">
+        <button className="btn outline" onClick={() => setModal('add')} disabled={!online}><Icon.Plus /> Ajouter</button>
+        <button className="btn outline" onClick={() => setModal('import')} disabled={!online}><Icon.Upload /> Importer</button>
       </div>
+
+      {students.length > 0 && (
+        <div className="row between wrap mb-2" style={{ gap: 8 }}>
+          <div className="seg">
+            <button type="button" className={view === 'list' ? 'on' : ''} onClick={() => changeView('list')} aria-label="Vue liste"><Icon.List size={16} /> Liste</button>
+            <button type="button" className={view === 'table' ? 'on' : ''} onClick={() => changeView('table')} aria-label="Vue tableau"><Icon.Table size={16} /> Tableau</button>
+          </div>
+          <button type="button" className="btn sm secondary" onClick={exportList} disabled={exporting} title="Liste des élèves en PDF, sans les appels">
+            {exporting ? <Spinner sm /> : <Icon.File size={16} />} Liste PDF
+          </button>
+        </div>
+      )}
 
       {students.length > 8 && (
         <div className="search mb-2">
@@ -67,6 +99,31 @@ export default function ClassDetail() {
       {students.length === 0 ? (
         <div className="card">
           <Empty illustration={Illustration.Students} title="Aucun élève" text="Ajoutez vos élèves un par un ou importez toute la liste depuis un fichier Excel ou CSV." />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="card muted center small">Aucun élève ne correspond à « {q} ».</div>
+      ) : view === 'table' ? (
+        <div className="card flat table-card">
+          <div className="table-wrap">
+            <table className="table roster">
+              <thead>
+                <tr><th className="num">N°</th><th>Nom</th><th>Prénom</th><th className="actions"><span className="sr-only">Actions</span></th></tr>
+              </thead>
+              <tbody>
+                {filtered.map((s) => (
+                  <tr key={s.id}>
+                    <td className="num muted">{students.indexOf(s) + 1}</td>
+                    <td className="bold"><Link to={`/eleve/${s.id}`} style={{ color: 'inherit' }}>{s.last_name}</Link></td>
+                    <td><Link to={`/eleve/${s.id}`} style={{ color: 'inherit' }}>{s.first_name}</Link></td>
+                    <td className="actions">
+                      <button className="btn ghost icon sm" onClick={() => setModal({ edit: s })} disabled={!online} aria-label="Modifier"><Icon.Edit size={16} /></button>
+                      <button className="btn ghost icon sm" onClick={() => setModal({ delete: s })} disabled={!online} aria-label="Supprimer" style={{ color: 'var(--danger)' }}><Icon.Trash size={16} /></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="list">
@@ -235,7 +292,7 @@ function ImportForm({ onSubmit, onCancel, busy }) {
       ) : (
         <>
           <p className="small muted mb-1">{fileName} — <b>{rows.length}</b> élève(s) détecté(s). Vérifiez avant d'importer :</p>
-          <div className="card flat" style={{ maxHeight: 280, overflow: 'auto', padding: 8 }}>
+          <div className="card flat table-wrap" style={{ maxHeight: 280, overflow: 'auto', padding: 8 }}>
             <table className="table">
               <thead><tr><th>#</th><th>Nom</th><th>Prénom</th></tr></thead>
               <tbody>

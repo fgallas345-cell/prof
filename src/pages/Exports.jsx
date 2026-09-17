@@ -49,6 +49,18 @@ export default function Exports() {
     if (isFree) return toast.warning("L'export est réservé au plan individuel.")
     const cls = classes.find((c) => c.id === classId)
     if (!cls) return
+    // Liste simple des élèves : indépendante de la période, sans données d'appel
+    if (kind === 'list') {
+      if (!students.length) return toast.warning('Cette classe ne contient aucun élève.')
+      setBusy(kind)
+      try {
+        const { exportClassListPDF } = await import('../lib/export')
+        exportClassListPDF({ cls, students, teacherName: profile?.full_name })
+        toast.success('Fichier généré ✓')
+      } catch (e) { toast.error(e.message) }
+      finally { setBusy('') }
+      return
+    }
     if (from > to) return toast.error('La date de début doit précéder la date de fin.')
     setBusy(kind)
     try {
@@ -117,7 +129,13 @@ export default function Exports() {
           </div>
 
           <div className="card">
-            <h3 className="mb-1">3. Fiche individuelle</h3>
+            <h3 className="mb-1">3. Liste des élèves</h3>
+            <p className="muted small mb-2">Liste nominative de la classe (N°, nom, prénom) sans aucune donnée d'appel — pratique à imprimer.</p>
+            <button className="btn outline block" onClick={() => run('list')} disabled={!!busy || isFree || !students.length}>{busy === 'list' ? <Spinner /> : <><Icon.File /> Liste des élèves PDF</>}</button>
+          </div>
+
+          <div className="card">
+            <h3 className="mb-1">4. Fiche individuelle</h3>
             <p className="muted small mb-2">Récapitulatif d'un élève avec ses absences et retards, prêt à signer (réunion parents, conseil de classe).</p>
             <div className="field">
               <label>Élève</label>

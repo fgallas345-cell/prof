@@ -44,6 +44,8 @@ export const Icon = {
   Zap: (p) => <I {...p}><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" /></I>,
   Sparkles: (p) => <I {...p}><path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" /><path d="M19 17l.8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8z" /></I>,
   Alert: (p) => <I {...p}><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></I>,
+  List: (p) => <I {...p}><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></I>,
+  Table: (p) => <I {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M3 15h18M9 4v16" /></I>,
 }
 
 /* ---------------- Illustrations (états vides) ---------------- */
@@ -173,7 +175,7 @@ export function TopBar({ title, subtitle, back = true, right }) {
         </button>
       )}
       <div className="grow">
-        <h1 className="truncate" style={{ fontSize: 20 }}>{title}</h1>
+        <h1 className="clamp-2" style={{ fontSize: 20 }}>{title}</h1>
         {subtitle && <div className="muted small">{subtitle}</div>}
       </div>
       {right}
